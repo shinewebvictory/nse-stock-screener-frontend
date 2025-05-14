@@ -6,7 +6,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # allow all origins
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -18,17 +18,23 @@ def screener():
     data = []
 
     for symbol in stock_symbols:
-        stock = yf.Ticker(symbol)
-        info = stock.info
-        price = info.get("currentPrice", 0)
-        
-        # Simple signal logic
-        signal = "BUY" if price % 2 == 0 else "SELL"
+        try:
+            stock = yf.Ticker(symbol)
+            info = stock.info
+            price = info.get("currentPrice", 0)
 
-        data.append({
-            "name": symbol.replace(".NS", ""),  # Stock name
-            "price": round(price, 2),
-            "signal": signal
-        })
+            signal = "BUY" if price % 2 == 0 else "SELL"
+
+            data.append({
+                "name": symbol.replace(".NS", ""),
+                "price": round(price, 2),
+                "signal": signal
+            })
+        except Exception as e:
+            data.append({
+                "name": symbol.replace(".NS", ""),
+                "price": 0,
+                "signal": "ERROR"
+            })
 
     return data
