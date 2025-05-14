@@ -8,24 +8,33 @@
         body {
             font-family: Arial, sans-serif;
             padding: 20px;
+            background-color: #f9f9f9;
         }
         table {
             width: 100%;
             border-collapse: collapse;
+            margin-top: 20px;
         }
         table, th, td {
             border: 1px solid #ddd;
         }
         th, td {
-            padding: 8px;
+            padding: 10px;
             text-align: left;
         }
         th {
-            background-color: #f2f2f2;
+            background-color: #e8e8e8;
         }
         .container {
             max-width: 900px;
             margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
         }
     </style>
 </head>
@@ -47,29 +56,38 @@
     </div>
 
     <script>
-        // URL of your Render-deployed API
         const apiUrl = 'https://nse-stocks.onrender.com/screener';
 
-        // Function to fetch data and update the table
         async function fetchStockData() {
             try {
                 const response = await fetch(apiUrl);
                 const stockData = await response.json();
-                
+
                 const tableBody = document.getElementById("stockTable").getElementsByTagName("tbody")[0];
+                tableBody.innerHTML = ""; // Clear previous rows
+
                 stockData.forEach(stock => {
                     const row = tableBody.insertRow();
+
                     row.insertCell(0).innerText = stock.symbol;
                     row.insertCell(1).innerText = stock.price;
-                    row.insertCell(2).innerText = stock.signal;
+
+                    const signalCell = row.insertCell(2);
+                    signalCell.innerText = stock.signal;
+                    signalCell.style.color = stock.signal === "BUY" ? "green" : "red";
+                    signalCell.style.fontWeight = "bold";
                 });
+
             } catch (error) {
                 console.error("Error fetching data:", error);
             }
         }
 
-        // Fetch and display stock data when the page loads
-        window.onload = fetchStockData;
+        // Run on page load and refresh every 60 seconds
+        window.onload = () => {
+            fetchStockData();
+            setInterval(fetchStockData, 60000);
+        };
     </script>
 </body>
 </html>
