@@ -5,7 +5,7 @@ import csv
 
 app = FastAPI()
 
-# Allow frontend access (CORS)
+# CORS for frontend access
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -22,27 +22,31 @@ def load_symbols_from_csv():
         for row in reader:
             symbol = row.get("symbol") or row.get("Symbol") or list(row.values())[0]
             if symbol:
-                symbols.append(symbol.strip() + ".NS")
+                symbols.append(symbol.strip().upper() + ".NS")
     return symbols
 
 symbols = load_symbols_from_csv()
 
-# Generate signal (simple placeholder logic)
+# Signal logic
 def get_signal(price):
     return "BUY" if price % 2 == 0 else "SELL"
 
 @app.get("/screener")
 def screener():
     result = []
-    for symbol in symbols:
-        try:
-            ticker = yf.Ticker(symbol)
-            price = ticker.history(period="1d")["Close"].iloc[-1]
-            result.append({
-                "symbol": symbol.replace(".NS", ""),
-                "price": round(price, 2),
-                "signal": get_signal(price)
-            })
-        except Exception as e:
-            print(f"Error fetching {symbol}: {e}")
+    try:
+        data = yf.download(tickers=" ".join(symbols), period="1d", group_by='ticker', threads=True)
+        for symbol in symbols:
+            short = symbol.replace(".NS", "")
+            try:
+                price = data[symbol]["Close"].iloc[-1]
+                result.append({
+                    "symbol": short,
+                    "price": round(price, 2),
+                    "signal": get_signal(price)
+                })
+            except Exception as e:
+                print(f"Missing data for {symbol}: {e}")
+    except Exception as e:
+        print("Error downloading data:", e)
     return result
