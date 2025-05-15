@@ -6,99 +6,55 @@
   <title>NSE Stock Screener</title>
   <style>
     body {
-      font-family: "Segoe UI", sans-serif;
-      background: #f9f9f9;
-      margin: 0;
+      font-family: Arial, sans-serif;
       padding: 20px;
     }
-
     .container {
-      max-width: 960px;
+      max-width: 1000px;
       margin: auto;
-      background: #fff;
-      padding: 30px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-      border-radius: 10px;
     }
-
     h1 {
       text-align: center;
-      margin-bottom: 20px;
     }
-
-    .controls {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      margin-bottom: 20px;
-      gap: 10px;
-    }
-
-    input[type="text"], select, button {
+    input, select, button {
+      margin: 10px 5px;
       padding: 8px;
       font-size: 16px;
     }
-
-    button {
-      background-color: #007bff;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-
-    button:hover {
-      background-color: #0056b3;
-    }
-
-    .loader {
-      text-align: center;
-      font-size: 18px;
-      margin-bottom: 20px;
-      color: #666;
-    }
-
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 15px;
+      margin-top: 10px;
     }
-
     th, td {
-      padding: 12px 10px;
+      border: 1px solid #ddd;
+      padding: 8px;
       text-align: left;
-      border-bottom: 1px solid #ddd;
     }
-
     th {
-      background-color: #f1f1f1;
+      background-color: #f2f2f2;
       cursor: pointer;
       position: sticky;
       top: 0;
-      z-index: 1;
     }
-
-    .signal-buy {
-      color: green;
-      font-weight: bold;
-    }
-
-    .signal-sell {
-      color: red;
-      font-weight: bold;
-    }
-
-    @media (max-width: 600px) {
-      .controls {
-        flex-direction: column;
+    @media screen and (max-width: 600px) {
+      table, thead, tbody, th, td, tr {
+        display: block;
       }
-
-      th, td {
-        font-size: 14px;
+      th {
+        position: relative;
       }
-
-      input, select, button {
-        width: 100%;
+      td {
+        padding-left: 50%;
+        text-align: right;
+        position: relative;
+      }
+      td::before {
+        content: attr(data-label);
+        position: absolute;
+        left: 10px;
+        text-align: left;
+        font-weight: bold;
       }
     }
   </style>
@@ -106,25 +62,20 @@
 <body>
   <div class="container">
     <h1>NSE Stock Screener</h1>
+    <input type="text" id="searchBox" placeholder="Search stock..." />
+    <select id="signalFilter">
+      <option value="">All</option>
+      <option value="BUY">Buy</option>
+      <option value="SELL">Sell</option>
+    </select>
+    <button onclick="fetchStockData()">Refresh</button>
 
-    <div class="controls">
-      <input type="text" id="searchInput" placeholder="Search stock...">
-      <select id="signalFilter">
-        <option value="ALL">All</option>
-        <option value="BUY">Buy</option>
-        <option value="SELL">Sell</option>
-      </select>
-      <button onclick="fetchStockData()">🔄 Refresh</button>
-    </div>
-
-    <div id="loader" class="loader">Loading stock data...</div>
-
-    <table id="stockTable" style="display: none;">
+    <table id="stockTable">
       <thead>
         <tr>
-          <th onclick="sortTable('symbol')">Stock ▲▼</th>
-          <th onclick="sortTable('price')">Price (₹) ▲▼</th>
-          <th>Signal</th>
+          <th onclick="sortTable(0)">Stock</th>
+          <th onclick="sortTable(1)">Price</th>
+          <th onclick="sortTable(2)">Signal</th>
         </tr>
       </thead>
       <tbody></tbody>
@@ -133,85 +84,54 @@
 
   <script>
     const apiUrl = 'https://nse-stocks.onrender.com/screener';
-    let allStocks = [];
-    let currentSort = { key: '', ascending: true };
+    let stockData = [];
 
     async function fetchStockData() {
-      const loader = document.getElementById("loader");
-      const table = document.getElementById("stockTable");
-      const tableBody = table.querySelector("tbody");
-      loader.style.display = "block";
-      table.style.display = "none";
-      loader.innerText = "Loading stock data...";
-
       try {
         const response = await fetch(apiUrl);
-        allStocks = await response.json();
-        loader.style.display = "none";
-        table.style.display = "table";
-        renderTable(allStocks);
+        stockData = await response.json();
+        renderTable(stockData);
       } catch (error) {
-        loader.innerText = "Failed to load data.";
         console.error("Error fetching stock data:", error);
       }
     }
 
     function renderTable(data) {
-      const tableBody = document.querySelector("#stockTable tbody");
+      const tableBody = document.getElementById("stockTable").getElementsByTagName("tbody")[0];
       tableBody.innerHTML = "";
+      const search = document.getElementById("searchBox").value.toLowerCase();
+      const filter = document.getElementById("signalFilter").value;
 
-      const searchValue = document.getElementById("searchInput").value.toLowerCase();
-      const selectedSignal = document.getElementById("signalFilter").value;
-
-      let filteredData = data.filter(stock => {
-        const matchesSearch = stock.symbol.toLowerCase().includes(searchValue);
-        const matchesSignal = selectedSignal === "ALL" || stock.signal === selectedSignal;
-        return matchesSearch && matchesSignal;
-      });
-
-      // Sort if needed
-      if (currentSort.key) {
-        filteredData.sort((a, b) => {
-          const valA = a[currentSort.key];
-          const valB = b[currentSort.key];
-          if (typeof valA === 'string') {
-            return currentSort.ascending
-              ? valA.localeCompare(valB)
-              : valB.localeCompare(valA);
-          } else {
-            return currentSort.ascending ? valA - valB : valB - valA;
-          }
+      data
+        .filter(stock =>
+          stock.symbol.toLowerCase().includes(search) &&
+          (filter === "" || stock.signal.toUpperCase() === filter)
+        )
+        .forEach(stock => {
+          const row = tableBody.insertRow();
+          row.insertCell(0).innerText = stock.symbol;
+          row.insertCell(1).innerText = stock.price.toFixed(2);
+          row.insertCell(2).innerText = stock.signal;
         });
-      }
+    }
 
-      filteredData.forEach(stock => {
-        const row = tableBody.insertRow();
-        row.insertCell(0).innerText = stock.symbol;
-        row.insertCell(1).innerText = stock.price;
-        const signalCell = row.insertCell(2);
-        signalCell.innerText = stock.signal;
-        signalCell.className = stock.signal === "BUY" ? "signal-buy" : "signal-sell";
+    document.getElementById("searchBox").addEventListener("input", () => renderTable(stockData));
+    document.getElementById("signalFilter").addEventListener("change", () => renderTable(stockData));
+
+    function sortTable(columnIndex) {
+      const key = ["symbol", "price", "signal"][columnIndex];
+      const ascending = stockData._sortAsc = !stockData._sortAsc;
+      stockData.sort((a, b) => {
+        if (key === "price") return ascending ? a.price - b.price : b.price - a.price;
+        return ascending
+          ? a[key].localeCompare(b[key])
+          : b[key].localeCompare(a[key]);
       });
+      renderTable(stockData);
     }
 
-    function sortTable(key) {
-      if (currentSort.key === key) {
-        currentSort.ascending = !currentSort.ascending;
-      } else {
-        currentSort.key = key;
-        currentSort.ascending = true;
-      }
-      renderTable(allStocks);
-    }
-
-    document.getElementById("searchInput").addEventListener("input", () => renderTable(allStocks));
-    document.getElementById("signalFilter").addEventListener("change", () => renderTable(allStocks));
-
-    // Auto refresh every 1 hour (3600000 ms)
-    setInterval(fetchStockData, 3600000);
-
-    // Initial load
-    window.onload = fetchStockData;
+    fetchStockData();
+    setInterval(fetchStockData, 60 * 60 * 1000); // Auto-refresh every 1 hour
   </script>
 </body>
 </html>
